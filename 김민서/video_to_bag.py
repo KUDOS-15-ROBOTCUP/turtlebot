@@ -7,11 +7,11 @@ from rclpy.serialization import serialize_message
 import os
 
 def create_bag_from_video(video_path, bag_path):
-    # 1. 중복 파일(폴더) 존재 여부 확인 (삭제 대신 중단하도록 변경)
+    # 1. 중복 파일(폴더) 존재 여부 확인
     if os.path.exists(bag_path):
         print(f"에러: '{bag_path}' 폴더가 이미 존재합니다.")
         print("기존 데이터를 보호하기 위해 변환을 중단합니다. 스크립트 하단의 'bag_folder' 이름을 변경한 후 다시 실행해 주세요.")
-        return  # 변환을 진행하지 않고 함수 종료
+        return
 
     print(f"✅ 알림: '{bag_path}' 폴더가 없습니다. 안전하게 새로 생성합니다.")
 
@@ -62,4 +62,26 @@ def create_bag_from_video(video_path, bag_path):
         current_time_ns = frame_count * time_step_ns
         msg.header.stamp.sec = current_time_ns // 1000000000
         msg.header.stamp.nanosec = current_time_ns % 1000000000
-        msg.header.frame
+        msg.header.frame_id = 'camera_link' # 카메라 프레임 ID 지정
+        
+        # 메시지를 직렬화(serialize)하여 bag 파일에 쓰기
+        writer.write(
+            '/camera/image_raw',
+            serialize_message(msg),
+            current_time_ns
+        )
+        
+        frame_count += 1
+        if frame_count % 100 == 0:
+            print(f"진행 중... ({frame_count}/{total_frames})")
+
+    cap.release()
+    print(f"🎉 변환 완료! 총 {frame_count} 프레임이 성공적으로 저장되었습니다.")
+
+if __name__ == '__main__':
+    # 변환할 MP4 영상 경로
+    video_file = os.path.expanduser('~/robocup_recording_1778065491.mp4')
+    # 새로 만들어질 rosbag 폴더 이름 지정
+    bag_folder = os.path.expanduser('~/robocup_mp4_bag')
+    
+    create_bag_from_video(video_file, bag_folder)
